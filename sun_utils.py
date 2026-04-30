@@ -1,6 +1,8 @@
-from sympy import symbols
+from sympy import KroneckerDelta, preorder_traversal, symbols
+from SUNDelta import SUNDelta
 
-def abstract_gellmann_chain(SUNT, adj_idx_lst, up_idx_name, down_idx_name):
+
+def abstract_gellmann_chain(SUNT, adj_idx_lst, up_idx_name, down_idx_name, with_idx = False):
     """ 
     Symbolic product of gellmann matrices in fundamental rep
 
@@ -20,9 +22,12 @@ def abstract_gellmann_chain(SUNT, adj_idx_lst, up_idx_name, down_idx_name):
     for adj_idx, up_idx, down_idx in zip(adj_idx_lst, up_idx_lst, down_idx_lst):
         expr *= SUNT[adj_idx,up_idx,down_idx]
 
-    return expr
+    if with_idx:
+        return expr, up_idx_lst, down_idx_lst
+    else:
+        return expr
 
-def abstract_trace(SUNT, adj_idx_lst, internal_idx_name):
+def abstract_trace(SUNT, adj_idx_lst, internal_idx_name, with_idx = False):
 
     """ 
     Symbolic trace expansion of gellmann matrices in fundamental rep
@@ -44,5 +49,44 @@ def abstract_trace(SUNT, adj_idx_lst, internal_idx_name):
             expr *= SUNT[adj_idx_lst[idx],internal_idx_lst[idx],internal_idx_lst[idx+1]]
         else:
             expr *= SUNT[adj_idx_lst[idx],internal_idx_lst[idx],internal_idx_lst[0]]
+
+    if with_idx:
+        return expr, internal_idx_lst
+    else:
+        return expr
+
+
+def abstract_contract_deltas(SUNN, dummy_indices, expr):
+    # 1. Handle addition (sums) by processing each term individually
+    expr = expr.expand()
+    if expr.is_Add:
+        return expr.func(*[abstract_contract_deltas(SUNN, dummy_indices, arg) for arg in expr.args])
+
+    # 2. Process multiplication (single terms)
+    dummy_set = set(dummy_indices)
+    changed = True
+
+    while changed:
+        changed = False
+        for d in preorder_traversal(expr):
+            if isinstance(d, SUNDelta):
+                a, b = d.args
+                if a == b:
+                    # Safely replace SUNDelta(a, a) with SUNN across this term
+                    expr = expr.subs(d, SUNN)
+                    changed = True
+                    break
+                if b in dummy_set:
+                    # Replace the specific delta with 1, then contract the index
+                    expr = expr.subs(d, 1).subs(b, a)
+                    dummy_set.discard(b)
+                    changed = True
+                    break
+                if a in dummy_set:
+                    # Replace the specific delta with 1, then contract the index
+                    expr = expr.subs(d, 1).subs(a, b)
+                    dummy_set.discard(a)
+                    changed = True
+                    break
 
     return expr
