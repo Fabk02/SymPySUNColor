@@ -6,8 +6,13 @@ import sun_utils
 from SUNDelta import SUNDelta
 from format_utils import VisualDelta, collect_color_structure
 import fierz_identity
+import photon_decoupling
 from sympy import IndexedBase, symbols,expand, latex, pprint, init_printing
 from functools import partial
+from time import time
+import sympy as sp
+
+start = int(time()*1000)
 
 T = IndexedBase('T')
 d = SUNDelta
@@ -18,11 +23,12 @@ gellman_chain = partial(sun_utils.abstract_gellmann_chain, T)
 trace = partial(sun_utils.abstract_trace,T)
 contract_deltas = partial(sun_utils.abstract_contract_deltas,Nc)
 
-N_GLUON = 4
+N_GLUON = 6
 adj_idx_list = symbols(f'a1:{N_GLUON+1}')
 num_idx_list = symbols(f'1:{N_GLUON+1}')
 
 gchain = gellman_chain(adj_idx_list, 'i', 'j')
+tree_lvl_pdr_rel = photon_decoupling.gen_tree_lvl_pdr('A', num_idx_list)
 
 expr = 0
 
@@ -39,7 +45,45 @@ for perm in permutation_utils.non_cyclic_perms(range(1,N_GLUON+1)):
 
 expr_collected = collect_color_structure(expr, Nc, SUNDelta)
 
+# Scroll through the collected expression to check PDR identities
+final_expr = 0
+
+# 1. Iterate over each Nc power "token"
+for nc_term in sp.Add.make_args(expr_collected):
+    # Separate the Nc power from its coefficient
+    factors = sp.Mul.make_args(nc_term)
+    nc_power = sp.Mul(*[f for f in factors if f.has(Nc)])
+    coeff_sum = sp.Mul(*[f for f in factors if not f.has(Nc)])
+    
+    # 2. Iterate over each specific color structure "token" inside this Nc power
+    reduced_coeff = 0
+    for color_term in sp.Add.make_args(coeff_sum):
+        # Separate the Delta chain from the sum of Amplitudes
+        c_factors = sp.Mul.make_args(color_term)
+        delta_chain = sp.Mul(*[f for f in c_factors if f.func == SUNDelta])
+        amp_sum = sp.Mul(*[f for f in c_factors if f.func != SUNDelta])
+        
+        # 3. Apply the PDR "Check"
+        # Since you use all(), this will ONLY trigger if the full identity is found
+        # in this specific color structure.
+        reduced_amp_sum = photon_decoupling.apply_tree_lvl_pdr(tree_lvl_pdr_rel, amp_sum)
+        
+        # If the PDR is correct and the identity is complete, 
+        # this term will naturally algebraically simplify to 0.
+        reduced_coeff += delta_chain * reduced_amp_sum
+        
+    final_expr += nc_power * reduced_coeff
+
+end_computation = int(time()*1000)
+
 init_printing(use_latex = 'mathjax')
-display_expr = expr_collected.subs(SUNDelta, VisualDelta)
+display_expr = final_expr.subs(SUNDelta, VisualDelta)
 
 display(display_expr)
+
+end = int(time()*1000)
+print("---------------------------------------------------------------------------------------")
+print(f"computation time: {end_computation-start}")
+print(f"total time: {end-start}")
+
+
