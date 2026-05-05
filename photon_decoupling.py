@@ -35,3 +35,36 @@ def apply_tree_lvl_pdr(pdr_lst, expr):
             current_expr = current_expr.subs(rel[0], neg_sum)
     
     return current_expr
+
+def gen_1loop_pdr(letter, idx_lst):
+    n_gluons = len(idx_lst)
+    pdr_lst = []
+
+    if n_gluons == 4:
+        for lhs_perm in permutation_utils.double_trace_inv_perms(range(1, n_gluons + 1),2):
+            term_lst = []
+            sym_pdr_term = [idx_lst[el - 1] for el in lhs_perm]
+            term_lst.append(abstract_cs_amp(letter, 3 ,sym_pdr_term))
+
+            for rhs_perm in permutation_utils.non_cyclic_perms(lhs_perm):
+                sym_pdr_term = [idx_lst[el - 1] for el in rhs_perm]
+                term_lst.append(abstract_cs_amp(letter, 1, sym_pdr_term))
+            
+            pdr_lst.append(term_lst)
+
+    return pdr_lst
+
+def apply_1loop_pdr(n_gluons, pdr_lst, expr):
+
+    current_expr = expr
+    for rel in pdr_lst:
+
+        if n_gluons == 4:
+            if all(current_expr.has(addend) for addend in rel):
+                sum = 0
+                for addend in rel[1:]:
+                    sum += addend
+                
+                current_expr = current_expr.subs(rel[0], sum)
+
+    return current_expr

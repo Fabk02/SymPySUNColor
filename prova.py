@@ -59,13 +59,15 @@ trace = partial(sun_utils.abstract_trace,T)
 contract_deltas = partial(sun_utils.abstract_contract_deltas,Nc)
 
 LEVEL = "1LOOP"
-N_GLUON = 4
+N_GLUON = 5
 adj_idx_list = symbols(f'a1:{N_GLUON+1}')
 num_idx_list = symbols(f'1:{N_GLUON+1}')
 
 gchain = gellman_chain(adj_idx_list, 'i', 'j')
 tree_lvl_pdr_rel = photon_decoupling.gen_tree_lvl_pdr('A', num_idx_list)
+ng_1loop_pdr_rel = photon_decoupling.gen_1loop_pdr('A', num_idx_list)
 tree_pdr_applier = partial(photon_decoupling.apply_tree_lvl_pdr, tree_lvl_pdr_rel)
+ng_1loop_pdr_applier = partial(photon_decoupling.apply_1loop_pdr, N_GLUON, ng_1loop_pdr_rel)
 
 if LEVEL == "TREE":
     expr = 0
@@ -111,7 +113,9 @@ elif LEVEL == "1LOOP":
             expr_contracted_second = contract_deltas(internal_tr2_idx, expand(expr_contracted_first))
             expr += expr_contracted_second
            
-    final_expr = collect_color_structure(expr, Nc, SUNDelta) 
+    expr_collected = collect_color_structure(expr, Nc, SUNDelta) 
+
+    final_expr = apply_pdr_relations(Nc, SUNDelta, expr_collected, ng_1loop_pdr_applier)
 
 
 end_computation = int(time()*1000)
