@@ -61,15 +61,16 @@ contract_deltas = partial(sun_utils.abstract_contract_deltas,Nc)
 LEVEL = "1LOOP"
 N_GLUON = 5
 adj_idx_list = symbols(f'a1:{N_GLUON+1}')
-num_idx_list = symbols(f'1:{N_GLUON+1}')
+base_num_idx_list = symbols(f'1:{N_GLUON+1}')
 
 gchain = gellman_chain(adj_idx_list, 'i', 'j')
-tree_lvl_pdr_rel = photon_decoupling.gen_tree_lvl_pdr('A', num_idx_list)
-ng_1loop_pdr_rel = photon_decoupling.gen_1loop_pdr('A', num_idx_list)
-tree_pdr_applier = partial(photon_decoupling.apply_tree_lvl_pdr, tree_lvl_pdr_rel)
-ng_1loop_pdr_applier = partial(photon_decoupling.apply_1loop_pdr, N_GLUON, ng_1loop_pdr_rel)
 
 if LEVEL == "TREE":
+
+    #INIT RELATIONS AND APPLIER
+    tree_lvl_pdr_rel = photon_decoupling.gen_tree_lvl_pdr('A', base_num_idx_list)
+    tree_pdr_applier = partial(photon_decoupling.apply_tree_lvl_pdr, tree_lvl_pdr_rel)
+
     expr = 0
     for perm in permutation_utils.non_cyclic_perms(range(1,N_GLUON+1)):
         num_idx_list = symbols([str(n) for n in perm])
@@ -115,8 +116,29 @@ elif LEVEL == "1LOOP":
            
     expr_collected = collect_color_structure(expr, Nc, SUNDelta) 
 
-    final_expr = apply_pdr_relations(Nc, SUNDelta, expr_collected, ng_1loop_pdr_applier)
+    if N_GLUON == 4:
+        #INIT RELATIONS AND APPLIER
+        g4_1loop_pdr_rel = photon_decoupling.gen_1loop_4g_pdr('A', base_num_idx_list)
+        g4_1loop_pdr_applier = partial(photon_decoupling.apply_4g_1loop_pdr, g4_1loop_pdr_rel)
+        
+        #APPLY RELATIONS
+        final_expr = apply_pdr_relations(Nc, SUNDelta, expr_collected, g4_1loop_pdr_applier)
+    
+    elif N_GLUON == 5:
+        #INIT RELATIONS AND APPLIER
+        g5_1loop_onlyA3_pdr_rel = photon_decoupling.gen_1loop_5g_onlyA3_pdr('A', base_num_idx_list)
+        g5_1loop_A3A1_pdr_rel = photon_decoupling.gen_1loop_5g_A3A1_pdr('A',base_num_idx_list)
+        g5_1loop_onlyA1_pdr_rel = photon_decoupling.gen_1loop_5g_onlyA1_pdr('A', base_num_idx_list)
+        
+        g5_1loop_pdr_applier = partial(photon_decoupling.apply_5g_1loop_pdr, g5_1loop_onlyA3_pdr_rel, g5_1loop_A3A1_pdr_rel, g5_1loop_onlyA1_pdr_rel)
+        
+        #APPLY RELATIONS
+        final_expr = apply_pdr_relations(Nc, SUNDelta, expr_collected, g5_1loop_pdr_applier)
+    
+    else:
+        final_expr = expr_collected
 
+    #final_expr = expr_collected
 
 end_computation = int(time()*1000)
 
@@ -129,5 +151,3 @@ end = int(time()*1000)
 print("---------------------------------------------------------------------------------------")
 print(f"computation time: {end_computation-start}")
 print(f"drawing time: {end-end_computation}")
-
-

@@ -52,3 +52,42 @@ def double_trace_inv_perms(idx_lst, split):
                 distinct_reps.append(c1+c2)
     
     return distinct_reps
+
+def cop(a: list, b: list):
+    """
+    Generates all unique linear sequences by shuffling every internal 
+    rotation of two lists, preserving the relative order of each rotation.
+    """
+    all_shuffles = set()
+    
+    # 1. Get all internal rotations of both lists using the provided function
+    a_rots = cyclic_perms(a)
+    b_rots = cyclic_perms(b)
+    
+    total_len = len(a) + len(b)
+    indices = list(range(total_len))
+    
+    # 2. Iterate through every combination of internal rotations
+    for perm_a in a_rots:
+        for perm_b in b_rots:
+            
+            # 3. Generate all order-preserving linear shuffles using combinations
+            for a_indices in itertools.combinations(indices, len(a)):
+                res = [None] * total_len
+                a_ptr = 0
+                b_ptr = 0
+                
+                # Construct the linear shuffle
+                for i in range(total_len):
+                    if i in a_indices:
+                        res[i] = perm_a[a_ptr]
+                        a_ptr += 1
+                    else:
+                        res[i] = perm_b[b_ptr]
+                        b_ptr += 1
+                        
+                # Add as a tuple so it can be hashed in the set
+                all_shuffles.add(tuple(res))
+                
+    # Return a sorted list of unique permutations
+    return sorted(list(all_shuffles))
