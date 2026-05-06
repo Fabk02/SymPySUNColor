@@ -3,6 +3,40 @@ import sympy as sp
 from sympy import Add
 from color_stripped_amps import *
 
+def apply_pdr_relations(SUNN, delta, expr_collected, *pdr_appliers):
+    # Scroll through the collected expression to check PDR identities
+    final_expr = 0
+
+    # 1. Iterate over each Nc power "token"
+    for nc_term in sp.Add.make_args(expr_collected):
+        # Separate the Nc power from its coefficient
+        factors = sp.Mul.make_args(nc_term)
+        nc_power = sp.Mul(*[f for f in factors if f.has(SUNN)])
+        coeff_sum = sp.Mul(*[f for f in factors if not f.has(SUNN)])
+        
+        # 2. Iterate over each specific color structure "token" inside this SUNN power
+        reduced_coeff = 0
+        for color_term in sp.Add.make_args(coeff_sum):
+            # Separate the Delta chain from the sum of Amplitudes
+            c_factors = sp.Mul.make_args(color_term)
+            delta_chain = sp.Mul(*[f for f in c_factors if f.func == delta])
+            amp_sum = sp.Mul(*[f for f in c_factors if f.func != delta])
+            
+            # 3. Apply the PDR "Check"
+            # Since you use all(), this will ONLY trigger if the full identity is found
+            # in this specific color structure.
+            reduced_amp_sum = amp_sum
+            for pdr_applier in pdr_appliers:
+                reduced_amp_sum = pdr_applier(reduced_amp_sum)
+            
+            # If the PDR is correct and the identity is complete, 
+            # this term will naturally algebraically simplify to 0.
+            reduced_coeff += delta_chain * reduced_amp_sum
+            
+        final_expr += nc_power * reduced_coeff
+    
+    return final_expr
+
 def subtract_relation(current_expr, rel, rel_expr):
     current_expr = sp.expand(current_expr)
 
