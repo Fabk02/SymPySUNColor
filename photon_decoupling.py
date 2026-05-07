@@ -230,7 +230,15 @@ def apply_5g_1loop_pdr(only_A3_pdr_lst, A3A1_pdr_lst, only_A1_pdr_lst, expr):
         rel_expr = sum(rel)
         current_expr = subtract_relation(current_expr, rel, rel_expr)
 
-    return current_expr        
+    return current_expr   
+
+def apply_brutally_pdr(SUNN, n_gluons, expr):
+
+    result = expr
+    for exp in range(1,n_gluons+1):
+        result = sp.Add(*[arg for arg in sp.Add.make_args(result) if not arg.has(1/SUNN**exp)])
+
+    return result
 
 """ N_GLUON = 5
 num_idx_list = symbols(f'1:{N_GLUON+1}')
