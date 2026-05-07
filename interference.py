@@ -11,6 +11,27 @@ from collections import defaultdict
 from sympy import Mul, Add, default_sort_key, Pow
 import sympy as sp
 
+from sympy import symbols, Add, Mul, Integer, Abs
+
+def count_addends_with_multiplicity(expr):
+    """Count addends with their integer coefficients as multiplicity."""
+    if not isinstance(expr, Add):
+        return 1  # single term
+    
+    total = 0
+    for term in expr.args:
+        if isinstance(term, Mul):
+            # Extract the numeric coefficient from the Mul
+            coeff = term.args[0]  # SymPy always puts the number first
+            if coeff.is_Number:
+                total += int(Abs(coeff))
+            else:
+                total += 1  # no numeric coefficient, multiplicity = 1
+        else:
+            total += 1  # plain symbol, multiplicity = 1
+    
+    return total
+
 def apply_pdr_relations_interference(SUNN, letter, expr_collected, *pdr_appliers):
     """
     Like apply_pdr_relations, but works on the output of collect_by_Nc_then_B.
@@ -83,7 +104,7 @@ opt_tree = amplitude.settings()
 opt_loop = amplitude.settings()
 opt_loop.cs_amp_letter = 'B'
 
-N_GLUONS = 5
+N_GLUONS = 4
 base_num_idx_list = symbols(f'1:{N_GLUONS+1}')
 tree_lvl_pdr_rel = photon_decoupling.gen_tree_lvl_pdr(opt_tree.cs_amp_letter, base_num_idx_list)
 tree_pdr_applier = partial(photon_decoupling.apply_tree_lvl_pdr, tree_lvl_pdr_rel)
@@ -113,28 +134,28 @@ conj_tree = decoupled_tree.replace(SUNDelta, lambda a,b: SUNDelta(b, a))
 expr_loop = amplitude.generate_amplitude(opt_loop, N_GLUONS, 1)
 decoupled_loop = photon_decoupling.apply_brutally_pdr(opt_loop.sun_n, N_GLUONS, expr_loop)
 
+decoupled_loop += amplitude.generate_loop_quark_amplitude(opt_loop, N_GLUONS)
+
 first_contr = contract_deltas(up_idx_lst, expand(conj_tree*decoupled_loop))
 second_contr = contract_deltas(down_idx_lst, expand(first_contr))
 
 tot_collected_by_loop = collect_by_Nc_then_B(second_contr, opt_loop.sun_n, opt_loop.cs_amp_letter)
 tot_reduced_by_tree = apply_pdr_relations_interference(opt_loop.sun_n, opt_loop.cs_amp_letter, tot_collected_by_loop, tree_pdr_applier)
-#tot_collected_by_tree = collect_by_Nc_then_B(tot_reduced_by_tree, opt_loop.sun_n, opt_tree.cs_amp_letter)
-#tot_reduced_by_loop = apply_pdr_relations_interference(opt_loop.sun_n, opt_tree.cs_amp_letter, tot_collected_by_tree, loop_pdr_applier)
-#tot_collected_by_loop = collect_by_Nc_then_B(tot_reduced_by_loop, opt_loop.sun_n, opt_loop.cs_amp_letter)
-#tot_reduced_by_tree = apply_pdr_relations_interference(opt_loop.sun_n, opt_loop.cs_amp_letter, tot_collected_by_loop, tree_pdr_applier)
 
 init_printing(use_latex = 'mathjax')
 display_expr = tot_reduced_by_tree
 print("tree expr:")
 display(conj_tree.subs(SUNDelta, VisualDelta))
-print(len(sp.Add.make_args(expand(conj_tree))))
+print(count_addends_with_multiplicity(expand(conj_tree)))
 print('----------------------------------------------------------------------------------')
 print("loop expr:")
 display(decoupled_loop.subs(SUNDelta, VisualDelta))
-print(len(sp.Add.make_args(expand(decoupled_loop))))
+print(count_addends_with_multiplicity(expand(decoupled_loop)))
 print('----------------------------------------------------------------------------------')
-print("non contr product: " + str(len(sp.Add.make_args(expand(second_contr)))))
+print("non contr product:")
+display(tot_collected_by_loop)
+print("non contr product: " + str(count_addends_with_multiplicity(expand(tot_collected_by_loop))))
 print('----------------------------------------------------------------------------------')
 print("product:")
 display(display_expr)
-print(len(sp.Add.make_args(expand(tot_reduced_by_tree))))
+print(count_addends_with_multiplicity(expand(tot_reduced_by_tree)))

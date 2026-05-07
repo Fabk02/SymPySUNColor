@@ -1,6 +1,6 @@
 from sympy import symbols, IndexedBase
 
-def abstract_cs_amp(letter, lvl, idx_lst, return_head = False):
+def abstract_cs_amp(letter, lvl, idx_lst, quark_loop = False, return_head = False):
     """
     Generate the color stripped factor
 
@@ -17,7 +17,11 @@ def abstract_cs_amp(letter, lvl, idx_lst, return_head = False):
     """
 
     n = len(idx_lst)
-    idx_base = IndexedBase(f'{letter}_{n};{lvl}')
+
+    if quark_loop:
+        idx_base = IndexedBase(f'{letter}^q_{n};{lvl}')
+    else:
+        idx_base = IndexedBase(f'{letter}_{n};{lvl}')
 
     if return_head:
         return idx_base[*idx_lst], idx_base

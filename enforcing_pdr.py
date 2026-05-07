@@ -12,7 +12,7 @@ import amplitude
 start = int(time()*1000)
 
 LEVEL = "1LOOP"
-N_GLUON = 4
+N_GLUON = 5
 base_num_idx_list = symbols(f'1:{N_GLUON+1}')
 
 if LEVEL == "TREE":
@@ -56,7 +56,7 @@ elif LEVEL == "1LOOP":
     else:
         final_expr = expr_collected
 
-    final_expr = expr_collected
+    #final_expr = expr_collected
 
 end_computation = int(time()*1000)
 
