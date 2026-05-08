@@ -82,7 +82,7 @@ opt_tree_1 = amplitude.settings()
 opt_tree_2 = amplitude.settings()
 opt_tree_2.cs_amp_letter = 'B'
 
-N_GLUONS = 4
+N_GLUONS = 5
 base_num_idx_list = symbols(f'1:{N_GLUONS+1}')
 
 up_idx_lst = symbols(f'{opt_tree_1.gellman_chain_up_idx}1:{N_GLUONS+1}')

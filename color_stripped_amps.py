@@ -27,3 +27,14 @@ def abstract_cs_amp(letter, lvl, idx_lst, quark_loop = False, return_head = Fals
         return idx_base[*idx_lst], idx_base
     else:
         return idx_base[*idx_lst]
+
+def abstract_qq_cs_amp(letter, lvl, q_idx_lst, g_idx_lst, return_head = False):
+    n = len(q_idx_lst) + len(g_idx_lst)
+
+    idx_base = IndexedBase(f'{letter}_{n};{lvl}')
+
+    if return_head:
+        return idx_base[*q_idx_lst,*g_idx_lst], idx_base
+    
+    else:
+        return idx_base[*q_idx_lst,*g_idx_lst]

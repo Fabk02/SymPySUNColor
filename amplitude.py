@@ -7,6 +7,7 @@ import fierz_identity
 import math
 from SUNDelta import SUNDelta
 from format_utils import collect_color_structure
+import itertools
 
 class settings:
     sun_tensor = IndexedBase('T')
@@ -18,7 +19,9 @@ class settings:
     gellman_chain_up_idx = 'i'
     gellman_chain_down_idx = 'j'
     first_tr_internal_idx = 'k'
-    second_tr_internal_idx = 'q'
+    second_tr_internal_idx = 'p'
+    q = 'q'
+    qbar = r'\bar{q}'
 
 def generate_base_amplitude(opt:settings, n_gluons: int, loop_lvl: int, quark_loop: bool = False):
     
@@ -87,3 +90,38 @@ def generate_amplitude(opt:settings, n_gluons: int, loop_lvl: int):
     
 def generate_loop_quark_amplitude(opt:settings, n_gluons: int):
     return (opt.nf * generate_base_amplitude(opt, n_gluons, 1, True))
+
+def generate_qq_amplitude(opt: settings, n_gluons: int, loop_lvl: int):
+    n_quarks = 2
+    tot_part = n_gluons + n_quarks
+    all_perms = [p for p in itertools.permutations(range(n_quarks+1, tot_part + 1))]
+
+    dummy_quark_up_idx = symbols(opt.gellman_chain_up_idx + opt.q)
+    dummy_quark_down_idx = symbols(opt.gellman_chain_down_idx + opt.qbar)
+
+    q_sym_lst = symbols(opt.q + ' ' + opt.qbar)
+
+    gellmann_prod = partial(sun_utils.abstract_gellmann_product, opt.sun_tensor)
+    gellmann_chain = partial(sun_utils.abstract_gellmann_chain, opt.sun_tensor)
+    fierz = partial(fierz_identity.abstract_fierz,opt.sun_tensor, opt.sun_delta, opt.sun_n)
+    contract_deltas = partial(sun_utils.abstract_contract_deltas,opt.sun_n)
+
+    adj_idx_list = symbols(f'{opt.sun_adjoint_idx}{n_quarks + 1}:{tot_part + 1}')
+    gchain = gellmann_chain(adj_idx_list, opt.gellman_chain_up_idx, opt.gellman_chain_down_idx, False, n_quarks)
+
+    if loop_lvl == 0:
+        expr = 0
+        for perm in all_perms:
+            num_idx_list = symbols([str(n) for n in perm])
+            adj_idx_list = symbols([f'{opt.sun_adjoint_idx}{n}' for n in perm])
+            cs_amp = abstract_qq_cs_amp(opt.cs_amp_letter, 0, q_sym_lst, num_idx_list)
+            prod, internal_idx = gellmann_prod(adj_idx_list, opt.first_tr_internal_idx, dummy_quark_up_idx, dummy_quark_down_idx, True)
+            expr_fierz = fierz(prod*gchain*cs_amp)
+            expr_contracted = contract_deltas(internal_idx, expand(expr_fierz))
+            expr += expr_contracted
+
+        expr_collected = collect_color_structure(expr, opt.sun_n, opt.sun_delta)
+        return expr_collected
+    
+    else:
+        return 0

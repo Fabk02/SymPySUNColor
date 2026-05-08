@@ -134,7 +134,7 @@ conj_tree = decoupled_tree.replace(SUNDelta, lambda a,b: SUNDelta(b, a))
 expr_loop = amplitude.generate_amplitude(opt_loop, N_GLUONS, 1)
 decoupled_loop = photon_decoupling.apply_brutally_pdr(opt_loop.sun_n, N_GLUONS, expr_loop)
 
-decoupled_loop += amplitude.generate_loop_quark_amplitude(opt_loop, N_GLUONS)
+#decoupled_loop += amplitude.generate_loop_quark_amplitude(opt_loop, N_GLUONS)
 
 first_contr = contract_deltas(up_idx_lst, expand(conj_tree*decoupled_loop))
 second_contr = contract_deltas(down_idx_lst, expand(first_contr))
