@@ -46,3 +46,19 @@ def abstract_fierz(SUNT, SUNDelta, SUNN, expr):
         expr = expr.subs(t1, 1).subs(t2, rhs)
 
     return expr
+
+def abstract_leading_fierz(SUNT, SUNDelta, expr):
+    pairs = abstract_find_adj_pairs(SUNT, expr)
+
+    if not pairs:
+        return expr
+    
+    for (a,i,j,k,l) in pairs:
+        rhs = SUNDelta(i,l)*SUNDelta(k,j)
+        t1 = SUNT[a, i, j]
+        t2 = SUNT[a, k, l]
+        # subs(a*b) only matches if SymPy's Mul has that exact factor pair;
+        # instead, divide out t1 and t2 explicitly to avoid ordering issues
+        expr = expr.subs(t1, 1).subs(t2, rhs)
+
+    return expr
