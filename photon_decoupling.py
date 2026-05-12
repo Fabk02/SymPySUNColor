@@ -240,6 +240,68 @@ def apply_brutally_pdr(SUNN, n_gluons, expr):
 
     return result
 
+def apply_tree_lvl_pdr_partial(pdr_lst, threshold, expr):
+    """
+    Like apply_tree_lvl_pdr, but triggers the substitution even when only
+    `threshold` (or more) terms of the relation are present in the expression,
+    provided they appear with consistent relative signs.
+
+    The tree-level PDR relation is: sum(rel) = 0, i.e. all terms have
+    coefficient +1 in rel_expr. So "correct relative signs" means all
+    found coefficients in the expression are consistent with the same
+    multiplier m (all ratios c_e / c_r equal and same-signed).
+
+    Parameters
+    ----------
+    pdr_lst   : list of lists, as returned by gen_tree_lvl_pdr
+    expr      : sympy expression to reduce
+    threshold : int, minimum number of relation terms that must be present
+                to trigger the subtraction
+    """
+    current_expr = sp.expand(expr)
+
+    for rel in pdr_lst:
+        rel_expr = sum(rel)  # all signs are +1 in the tree-level PDR
+
+        # Coefficients of each term of the relation inside rel_expr (all = 1)
+        coeffs_r = [rel_expr.coeff(addend) for addend in rel]
+
+        # Coefficients of each term of the relation inside current_expr
+        coeffs_e = [current_expr.coeff(addend) for addend in rel]
+
+        # Identify which terms are actually present (non-zero coefficient)
+        present = [(c_e, c_r, addend)
+                   for c_e, c_r, addend in zip(coeffs_e, coeffs_r, rel)
+                   if c_e != 0]
+
+        if len(present) < threshold:
+            continue  # not enough terms present, skip
+
+        # Check that all present terms are consistent with the SAME multiplier m
+        # and the same sign, i.e. c_e / c_r is constant across present terms.
+        m_candidates = [c_e / c_r for c_e, c_r, _ in present]
+
+        all_positive = all(m > 0 for m in m_candidates)
+        all_negative = all(m < 0 for m in m_candidates)
+
+        if not (all_positive or all_negative):
+            continue  # mixed signs — not a consistent partial application
+
+        # Check all ratios are actually equal (same m for every present term)
+        m_ref = m_candidates[0]
+        if not all(sp.simplify(m - m_ref) == 0 for m in m_candidates):
+            continue  # ratios differ — the relative signs are wrong
+
+        # Pick the smallest |m| so we never over-subtract
+        if all_positive:
+            m = min(m_candidates)
+        else:
+            m = max(m_candidates)  # most negative → smallest magnitude
+
+        current_expr = sp.expand(current_expr - m * rel_expr)
+
+    return current_expr
+
 """ N_GLUON = 5
 num_idx_list = symbols(f'1:{N_GLUON+1}')
 #print(gen_1loop_pdr('A', num_idx_list))

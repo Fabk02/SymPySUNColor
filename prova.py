@@ -9,39 +9,169 @@ from functools import partial
 from time import time
 import amplitude
 import sun_utils
+import sympy as sp
+import math
+
+def apply_pdr_relations_interference(opt:amplitude.settings, expr_collected, *pdr_appliers):
+    """
+    Like apply_pdr_relations, but works on the output of collect_by_Nc_then_B.
+    Iterates over Nc-power tokens, then B-factor tokens, and applies PDR
+    appliers directly on the remaining scalar coefficient.
+    """
+    final_expr = 0
+
+    for nc_term in sp.Add.make_args(expr_collected):
+        factors = sp.Mul.make_args(nc_term)
+        nc_power = sp.Mul(*[f for f in factors if f.has(opt.sun_n)])
+        coeff_no_nc = sp.Mul(*[f for f in factors if not f.has(opt.sun_n)])
+
+        reduced_coeff = 0
+        for b_term in sp.Add.make_args(coeff_no_nc):
+            b_factors = []
+            rest_factors = []
+            for f in sp.Mul.make_args(b_term):
+                if hasattr(f, 'base') and str(f.base).startswith(opt.cs_amp_letter):
+                    b_factors.append(f)
+                else:
+                    rest_factors.append(f)
+
+            b_product = sp.Mul(*b_factors)
+            scalar = sp.Mul(*rest_factors)
+
+            reduced_scalar = scalar
+            for pdr_applier in pdr_appliers:
+                reduced_scalar = pdr_applier(reduced_scalar)
+
+            reduced_coeff += b_product * reduced_scalar
+
+        final_expr += nc_power * reduced_coeff
+
+    return final_expr
+
+print("started")
+start = int(time())
+
+N_GLUONS = 5
+INTERFERENCE = True #False = tree lvl squared
+APPLY_PDR = True
+WITH_PARTIAL_PDR = False
+DEBUG_PRINTING = True
+EXPAND_SUBLEADING = True
+APPLY_INTERFERENCE = True
+
+opt_loop = amplitude.settings()
+opt_loop.n_gluons = N_GLUONS
+opt_loop.cs_amp_letter = 'B'
+
+opt_tree = amplitude.settings()
+opt_tree.n_gluons = N_GLUONS
+
+base_num_idx_list = symbols(f'1:{N_GLUONS+1}')
+tree_lvl_pdr_rel = photon_decoupling.gen_tree_lvl_pdr(opt_tree.cs_amp_letter, base_num_idx_list)
+tree_pdr_applier = partial(photon_decoupling.apply_tree_lvl_pdr, tree_lvl_pdr_rel)
+partial_pdr_applier = [partial(photon_decoupling.apply_tree_lvl_pdr_partial, tree_lvl_pdr_rel, el) for el in range(math.floor((N_GLUONS - 1)/2) + 1, N_GLUONS)]
+
+expr_tree = amplitude.generate_leading_amplitude(opt_tree, 0)
+expr_tree = expr_tree.replace(SUNDelta, lambda a,b: SUNDelta(b, a))
+
+if DEBUG_PRINTING:
+    debug_tree_expr = expr_tree
+
+checkpoint = [start,]
+
+print("tree generated")
+checkpoint.append(int(time()))
+print(f"time elapsed from previous step: {checkpoint[-1] - checkpoint[-2]}")
+print()
+
+if INTERFERENCE:
+    expr_loop = amplitude.generate_leading_amplitude(opt_loop, 1)
+
+    if DEBUG_PRINTING:
+        debug_loop_expr = expr_loop
+
+    if EXPAND_SUBLEADING:
+        expr_loop = amplitude.expand_subleading(opt_loop, 3, expr_loop)
+    
+    if APPLY_INTERFERENCE:
+        expr_loop = amplitude.apply_reflection(opt_loop, expr_loop)
+
+else:
+    expr_loop = amplitude.generate_leading_amplitude(opt_loop, 0)
+    
+    if DEBUG_PRINTING:
+        debug_loop_expr = expr_loop
+    
+    if APPLY_INTERFERENCE:
+        expr_loop = amplitude.apply_reflection(opt_loop, expr_loop, 0)
 
 
-LEVEL = "1LOOP"
-N_PART = 5
-N_QUARKS = 2
-N_GLUONS = N_PART - N_QUARKS
-base_num_idx_list = symbols(f'3:{N_PART+1}')
-q_idx_list = list(symbols(r'q \bar{q}'))
+print("loop generated")
+checkpoint.append(int(time()))
+print(f"time elapsed from previous step: {checkpoint[-1] - checkpoint[-2]}")
+print()
 
-opt_1 = amplitude.settings()
-opt_2 = amplitude.settings()
-opt_2.cs_amp_letter = 'B'
+product = expr_tree*expr_loop
 
-dummy_quark_up_idx = symbols(opt_1.gellman_chain_up_idx + opt_1.q)
-dummy_quark_down_idx = symbols(opt_1.gellman_chain_down_idx + opt_1.qbar)
+print("computed product")
+checkpoint.append(int(time()))
+print(f"time elapsed from previous step: {checkpoint[-1] - checkpoint[-2]}")
+print()
 
-up_idx_lst = list(symbols(f'{opt_1.gellman_chain_up_idx}{N_QUARKS + 1}:{N_PART+1}'))
-up_idx_lst.append(dummy_quark_up_idx)
-down_idx_lst = list(symbols(f'{opt_1.gellman_chain_down_idx}{N_QUARKS + 1}:{N_PART+1}'))
-down_idx_lst.append(dummy_quark_up_idx)
+up_contraction = sun_utils.abstract_contract_deltas(opt_tree.sun_n, opt_tree.gellman_chain_up_idx_list, product)
 
-contract_deltas = partial(sun_utils.abstract_contract_deltas,opt_1.sun_n)
+print("contracted first product")
+checkpoint.append(int(time()))
+print(f"time elapsed from previous step: {checkpoint[-1] - checkpoint[-2]}")
+print()
 
-expr_1 = amplitude.generate_qq_amplitude(opt_1, N_GLUONS, 0)
-conj_expr_1 = expr_1.replace(SUNDelta, lambda a,b: SUNDelta(b, a))
+down_contraction = sun_utils.abstract_contract_deltas(opt_tree.sun_n, opt_tree.gellman_chain_down_idx_list, up_contraction)
 
-expr_2 = amplitude.generate_qq_amplitude(opt_2, N_GLUONS, 0)
+print("contracted second product")
+checkpoint.append(int(time()))
+print(f"time elapsed from previous step: {checkpoint[-1] - checkpoint[-2]}")
+print()
 
-expr = conj_expr_1*expr_2
+result = amplitude.collect_by_Nc_then_amp(opt_loop, down_contraction)
 
-up_contr = contract_deltas(up_idx_lst, expand(expr))
-down_contr = contract_deltas(down_idx_lst, expand(up_contr))
+print("collected")
+checkpoint.append(int(time()))
+print(f"time elapsed from previous step: {checkpoint[-1] - checkpoint[-2]}")
+print()
+
+
+if APPLY_PDR:
+    if WITH_PARTIAL_PDR:
+        result = apply_pdr_relations_interference(opt_loop, result, tree_pdr_applier, *partial_pdr_applier, tree_pdr_applier)
+    else:
+        result = apply_pdr_relations_interference(opt_loop, result, tree_pdr_applier)
+
+
+#if INTERFERENCE:
+#    result = amplitude.apply_reflection(opt_loop, result)
+#
+#else:
+#    result = amplitude.apply_reflection(opt_loop, result, 0)
+#    result = amplitude.collect_by_Nc_then_amp(opt_loop, result)
+
+
+print("decoupled")
+checkpoint.append(int(time()))
+print(f"time elapsed from previous step: {checkpoint[-1] - checkpoint[-2]}")
+print()
 
 init_printing(use_latex='mathjax')
-display_expr = down_contr.subs(SUNDelta, VisualDelta)
+
+if DEBUG_PRINTING:
+    print("tree")
+    print()
+    display(debug_tree_expr.subs(SUNDelta, VisualDelta))
+    print()
+    print("loop")
+    print()
+    display(debug_loop_expr.subs(SUNDelta, VisualDelta))
+    print()
+
+print("contracted product")
+display_expr = result.subs(SUNDelta, VisualDelta)
 display(display_expr)

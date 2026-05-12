@@ -76,37 +76,89 @@ def abstract_gellmann_product(SUNT, adj_idx_lst, internal_idx_name, ext_up_idx_s
     else:
         return expr
 
-def abstract_contract_deltas(SUNN, dummy_indices, expr):
-    # 1. Handle addition (sums) by processing each term individually
-    expr = expr.expand()
-    if expr.is_Add:
-        return expr.func(*[abstract_contract_deltas(SUNN, dummy_indices, arg) for arg in expr.args])
+OPTIMIZE = True
 
-    # 2. Process multiplication (single terms)
-    dummy_set = set(dummy_indices)
-    changed = True
+if not OPTIMIZE:
+    def abstract_contract_deltas(SUNN, dummy_indices, expr):
+        # 1. Handle addition (sums) by processing each term individually
+        expr = expr.expand()
+        if expr.is_Add:
+            return expr.func(*[abstract_contract_deltas(SUNN, dummy_indices, arg) for arg in expr.args])
 
-    while changed:
-        changed = False
-        for d in preorder_traversal(expr):
-            if isinstance(d, SUNDelta):
+        # 2. Process multiplication (single terms)
+        dummy_set = set(dummy_indices)
+        changed = True
+
+        while changed:
+            changed = False
+            for d in preorder_traversal(expr):
+                if isinstance(d, SUNDelta):
+                    a, b = d.args
+                    if a == b:
+                        # Safely replace SUNDelta(a, a) with SUNN across this term
+                        expr = expr.subs(d, SUNN)
+                        changed = True
+                        break
+                    if b in dummy_set:
+                        # Replace the specific delta with 1, then contract the index
+                        expr = expr.subs(d, 1).subs(b, a)
+                        dummy_set.discard(b)
+                        changed = True
+                        break
+                    if a in dummy_set:
+                        # Replace the specific delta with 1, then contract the index
+                        expr = expr.subs(d, 1).subs(a, b)
+                        dummy_set.discard(a)
+                        changed = True
+                        break
+
+        return expr
+
+else:
+    def abstract_contract_deltas(SUNN, dummy_indices, expr):
+        # 1. Handle addition (sums) by processing each term individually
+        expr = expr.expand()
+        if expr.is_Add:
+            return expr.func(*[abstract_contract_deltas(SUNN, dummy_indices, arg) for arg in expr.args])
+
+        # 2. Process single terms (multiplications)
+        dummy_set = set(dummy_indices)
+
+        while True:
+            # Optimization: atoms(Type) is significantly faster than preorder_traversal
+            # because it targets specific objects instead of visiting every node manually.
+            deltas = expr.atoms(SUNDelta)
+            if not deltas:
+                break
+                
+            contracted = False
+            for d in deltas:
                 a, b = d.args
+                
+                # Case: SUNDelta(a, a) -> SUNN
                 if a == b:
-                    # Safely replace SUNDelta(a, a) with SUNN across this term
                     expr = expr.subs(d, SUNN)
-                    changed = True
+                    contracted = True
                     break
+                
+                # Case: SUNDelta(a, b) where b is dummy -> replace b with a
                 if b in dummy_set:
-                    # Replace the specific delta with 1, then contract the index
-                    expr = expr.subs(d, 1).subs(b, a)
+                    # Optimization: Passing a dictionary to .subs() performs 
+                    # substitutions in a single tree traversal rather than two.
+                    expr = expr.subs({d: 1, b: a})
                     dummy_set.discard(b)
-                    changed = True
+                    contracted = True
                     break
+                    
+                # Case: SUNDelta(a, b) where a is dummy -> replace a with b
                 if a in dummy_set:
-                    # Replace the specific delta with 1, then contract the index
-                    expr = expr.subs(d, 1).subs(a, b)
+                    expr = expr.subs({d: 1, a: b})
                     dummy_set.discard(a)
-                    changed = True
+                    contracted = True
                     break
+            
+            # If a full pass through the deltas yields no contractions, the term is finished
+            if not contracted:
+                break
 
-    return expr
+        return expr
