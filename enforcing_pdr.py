@@ -12,11 +12,12 @@ import amplitude
 start = int(time()*1000)
 
 LEVEL = "1LOOP"
-N_GLUON = 4
+N_GLUON = 5
 base_num_idx_list = symbols(f'1:{N_GLUON+1}')
 
 if LEVEL == "TREE":
     opt = amplitude.settings()
+    opt.n_gluons = N_GLUON
     opt.cs_amp_letter = 'B'
     opt.gellman_chain_up_idx = 'f'
 
@@ -24,15 +25,16 @@ if LEVEL == "TREE":
     tree_lvl_pdr_rel = photon_decoupling.gen_tree_lvl_pdr(opt.cs_amp_letter, base_num_idx_list)
     tree_pdr_applier = partial(photon_decoupling.apply_tree_lvl_pdr, tree_lvl_pdr_rel)
 
-    expr_collected = amplitude.generate_amplitude(opt, N_GLUON, 0)
+    expr_collected = amplitude.generate_amplitude(opt, 0)
 
     final_expr = photon_decoupling.apply_pdr_relations(opt.sun_n, opt.sun_delta, expr_collected, tree_pdr_applier)
 
 elif LEVEL == "1LOOP":
     
     opt = amplitude.settings()
+    opt.n_gluons = N_GLUON
     opt.cs_amp_letter = 'B'
-    expr_collected = amplitude.generate_amplitude(opt, N_GLUON, 1)
+    expr_collected = amplitude.generate_amplitude(opt,1)
 
     if N_GLUON == 4:
         #INIT RELATIONS AND APPLIER

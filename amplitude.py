@@ -126,6 +126,49 @@ def generate_amplitude(opt:settings, loop_lvl: int):
     else:
         return 0
     
+def generate_only_subleading(opt: settings):
+    expr = 0
+    max_lvl = math.floor(opt.n_gluons/2) + 1
+    for lvl in range(3,max_lvl + 1):
+        for perm in permutation_utils.double_trace_inv_perms(range(1,opt.n_gluons+1),lvl-1):
+            
+            num_idx_list = symbols([str(n) for n in perm])
+            adj_idx_list = symbols([f'{opt.sun_adjoint_idx}{n}' for n in perm])
+            cs_amp = abstract_cs_amp(opt.cs_amp_letter, lvl, num_idx_list)
+
+            tr1 = opt.trace(adj_idx_list[:lvl-1], opt.first_tr_internal_idx)
+            tr2 = opt.trace(adj_idx_list[lvl-1:], opt.second_tr_internal_idx)
+            expr_fierz = opt.fierz(tr1*tr2*opt.gellman_chain*cs_amp)
+            expr_contracted_first = opt.contract_deltas_first(expand(expr_fierz))
+            expr_contracted_second = opt.contract_deltas_second(expand(expr_contracted_first))
+            expr += expr_contracted_second
+        
+    expr_collected = collect_color_structure(expr, opt.sun_n, opt.sun_delta)
+
+    return expr_collected
+
+def generate_only_leading_subleading(opt: settings):
+    expr = 0
+    max_lvl = math.floor(opt.n_gluons/2) + 1
+    for lvl in range(3,max_lvl + 1):
+        for perm in permutation_utils.double_trace_inv_perms(range(1,opt.n_gluons+1),lvl-1):
+            
+            num_idx_list = symbols([str(n) for n in perm])
+            adj_idx_list = symbols([f'{opt.sun_adjoint_idx}{n}' for n in perm])
+            cs_amp = abstract_cs_amp(opt.cs_amp_letter, lvl, num_idx_list)
+
+            tr1 = opt.trace(adj_idx_list[:lvl-1], opt.first_tr_internal_idx)
+            tr2 = opt.trace(adj_idx_list[lvl-1:], opt.second_tr_internal_idx)
+            expr_fierz = opt.leading_fierz(tr1*tr2*opt.gellman_chain*cs_amp)
+            expr_contracted_first = opt.contract_deltas_first(expand(expr_fierz))
+            expr_contracted_second = opt.contract_deltas_second(expand(expr_contracted_first))
+            expr += expr_contracted_second
+        
+    expr_collected = collect_color_structure(expr, opt.sun_n, opt.sun_delta)
+
+    return expr_collected
+
+    
 def generate_leading_base_amplitude(opt:settings, loop_lvl: int, quark_loop: bool = False):
 
     expr = 0

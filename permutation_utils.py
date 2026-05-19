@@ -62,7 +62,9 @@ def cop(a: list, b: list):
     
     # 1. Get all internal rotations of both lists using the provided function
     a_rots = cyclic_perms(a)
-    b_rots = cyclic_perms(b)
+    #a_rots = [cycle_order(a),]
+    #b_rots = cyclic_perms(b)
+    b_rots = [b,]
     
     total_len = len(a) + len(b)
     indices = list(range(total_len))

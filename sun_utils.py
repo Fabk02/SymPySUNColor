@@ -1,6 +1,6 @@
 from sympy import KroneckerDelta, preorder_traversal, symbols
 from SUNDelta import SUNDelta
-
+import sympy as sp
 
 def abstract_gellmann_chain(SUNT, adj_idx_lst, up_idx_name, down_idx_name, with_idx = False, n_quarks = 0):
     """ 
@@ -162,3 +162,58 @@ else:
                 break
 
         return expr
+    
+def compute_closed_cycles(SUNN, d, expr):
+    # 1. Handle addition (sums) by processing each term individually
+    expr = expr.expand()
+    if expr.is_Add:
+        return expr.func(*[compute_closed_cycles(SUNN, d, arg) for arg in expr.args])
+
+    deltas = expr.atoms(d)
+    if not deltas:
+        return expr
+    
+    up_idx_lst = []
+    down_idx_lst = []
+    target_el = 0
+    target_pos = -1
+    seen_pos = []
+    start_idx = 0
+    n_power = 0
+
+    for delta in deltas:
+        a, b = delta.args
+        up_idx_lst.append(a)
+        down_idx_lst.append(b)
+
+    while True:
+
+        for idx in range(len(deltas)):
+            if idx not in seen_pos:
+                seen_pos.append(idx)
+                start_idx = idx
+                target_pos = start_idx
+                break
+        
+        while True:
+            target_el = down_idx_lst[target_pos]
+            target_pos = up_idx_lst.index(target_el)
+
+            if target_pos == start_idx:
+                n_power += 1
+                break
+        
+            seen_pos.append(target_pos)
+        
+        if len(seen_pos) == len(up_idx_lst):
+            break
+
+    delta_product = sp.Mul(*deltas)
+    expr = (expr / delta_product) * (SUNN ** n_power)
+
+    return expr
+
+           
+
+
+        
