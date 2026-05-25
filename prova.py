@@ -56,11 +56,14 @@ N_GLUONS = 5
 INTERFERENCE = False #False = tree lvl squared
 DEBUG_PRINTING = False
 
-APPLY_PDR = True
+KK_TREE = True
+KK_SECOND_TREE = True
+
+APPLY_PDR = False
 WITH_PARTIAL_PDR = False
-EXPAND_SUBLEADING = True
-APPLY_REFLECTION = True
-APPLY_TREE_REFLECTION = True
+EXPAND_SUBLEADING = False
+APPLY_REFLECTION = False
+APPLY_TREE_REFLECTION = False
 
 APPLY_TREE_REFLECTION_AFTER = False
 APPLY_REFLECTION_AFTER = False
@@ -81,8 +84,12 @@ tree_lvl_pdr_rel = photon_decoupling.gen_tree_lvl_pdr(opt_tree.cs_amp_letter, ba
 tree_pdr_applier = partial(photon_decoupling.apply_tree_lvl_pdr, tree_lvl_pdr_rel)
 partial_pdr_applier = [partial(photon_decoupling.apply_tree_lvl_pdr_partial, tree_lvl_pdr_rel, el) for el in range(math.floor((N_GLUONS - 1)/2) + 1, N_GLUONS)]
 
-expr_tree = amplitude.generate_leading_amplitude(opt_tree, 0)
-expr_tree = expr_tree.replace(SUNDelta, lambda a,b: SUNDelta(b, a))
+if KK_TREE:
+    expr_tree = amplitude.generate_kk_tree_lvl(opt_tree)
+    expr_tree = expr_tree.replace(SUNDelta, lambda a,b: SUNDelta(b, a))
+else:
+    expr_tree = amplitude.generate_leading_amplitude(opt_tree, 0)
+    expr_tree = expr_tree.replace(SUNDelta, lambda a,b: SUNDelta(b, a))
 
 if APPLY_TREE_REFLECTION:
     expr_tree = amplitude.apply_reflection(opt_tree, expr_tree, 0)
@@ -115,7 +122,11 @@ if INTERFERENCE:
         expr_loop = amplitude.apply_reflection(opt_loop, expr_loop)
 
 else:
-    expr_loop = amplitude.generate_leading_amplitude(opt_loop, 0)
+
+    if KK_SECOND_TREE:
+        expr_loop = amplitude.generate_kk_tree_lvl(opt_loop)
+    else:
+        expr_loop = amplitude.generate_leading_amplitude(opt_loop, 0)
     
     if DEBUG_PRINTING:
         debug_loop_expr = expr_loop

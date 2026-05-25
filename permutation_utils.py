@@ -93,3 +93,30 @@ def cop(a: list, b: list):
                 
     # Return a sorted list of unique permutations
     return sorted(list(all_shuffles))
+
+def shuffle_product(alpha, beta):
+    """
+    Computes the shuffle product of two sequences alpha and beta.
+    Preserves the relative internal order of elements in both sequences.
+    
+    :param alpha: List or tuple of elements
+    :param beta: List or tuple of elements
+    :return: List of lists containing all valid shuffled combinations
+    """
+    # Base cases
+    if not alpha:
+        return [list(beta)]
+    if not beta:
+        return [list(alpha)]
+    
+    result = []
+    
+    # Choice 1: Take the first element from alpha and shuffle the rest with beta
+    for sub_shuffle in shuffle_product(alpha[1:], beta):
+        result.append([alpha[0]] + sub_shuffle)
+        
+    # Choice 2: Take the first element from beta and shuffle alpha with the rest
+    for sub_shuffle in shuffle_product(alpha, beta[1:]):
+        result.append([beta[0]] + sub_shuffle)
+        
+    return result

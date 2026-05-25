@@ -10,6 +10,7 @@ from format_utils import collect_color_structure
 import itertools
 from collections import defaultdict
 from sympy import Mul, Add, default_sort_key, Pow
+import itertools
 
 class settings:
     n_gluons = 4
@@ -88,6 +89,25 @@ def generate_base_amplitude(opt:settings, loop_lvl: int, quark_loop: bool = Fals
 
         tr = opt.trace(adj_idx_list, opt.first_tr_internal_idx)
         expr_fierz = opt.fierz(tr*opt.gellman_chain*cs_amp)
+        expr_contracted = opt.contract_deltas_first(expand(expr_fierz))
+
+        expr += expr_contracted
+
+    expr_collected = collect_color_structure(expr, opt.sun_n, opt.sun_delta)
+
+    return expr_collected
+
+def generate_kk_tree_lvl(opt:settings):
+    expr = 0
+    gluon_range = range(1, opt.n_gluons + 1)
+    for perm in itertools.permutations(gluon_range[1:opt.n_gluons - 1]):
+        full_list = [gluon_range[0],] + list(perm) + [gluon_range[-1],]
+        num_idx_list = symbols([str(n) for n in full_list])
+        adj_idx_list = symbols([f'{opt.sun_adjoint_idx}{n}' for n in full_list])
+        cs_amp = abstract_cs_amp(opt.cs_amp_letter, 0, num_idx_list)
+
+        tr = opt.trace(adj_idx_list, opt.first_tr_internal_idx)
+        expr_fierz = opt.leading_fierz(tr*opt.gellman_chain*cs_amp)
         expr_contracted = opt.contract_deltas_first(expand(expr_fierz))
 
         expr += expr_contracted
@@ -216,6 +236,8 @@ def generate_leading_amplitude(opt:settings, loop_lvl: int):
 
     else:
         return 0
+    
+
     
 def generate_loop_quark_amplitude(opt:settings, n_gluons: int):
     return (opt.nf * generate_base_amplitude(opt, n_gluons, 1, True))
