@@ -11,6 +11,7 @@ import sun_utils
 import permutation_utils
 import numpy as np
 from scipy.linalg import orth
+import simplification_utils
 
 def analyze_subspace(vectors):
     """
@@ -170,7 +171,7 @@ def is_in_int_span(start, basis, target):
         return False, None
 
 
-LOOP_SEQUENCE = [1,2,3,4]
+LOOP_SEQUENCE = [1,2,3,4,5]
 N_GLUONS = len(LOOP_SEQUENCE)
 SUBLEADING_ORDER = N_GLUONS - 2
 
@@ -241,6 +242,8 @@ if APPLY_REFLECTION:
 else:
     target = target_list(LOOP_SEQUENCE, opt_tree, full_dict)
 
+res = simplification_utils.find_sparsest_lattice_point(start, others)
+
 init_printing(use_latex='mathjax')
 
 display_expr = expr.subs(SUNDelta, VisualDelta)
@@ -252,7 +255,7 @@ print(start)
 print(others)
 print(target)
 print(is_in_int_span(start, others, target))
-
+print(res)
 
 
 #for i in range(len(target)):

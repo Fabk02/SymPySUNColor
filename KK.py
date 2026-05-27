@@ -9,54 +9,11 @@ import color_stripped_amps
 import photon_decoupling
 import sun_utils
 import permutation_utils
+import KK_utils
+import simplification_utils
 
-def kk_rel(gluons_list: list, fixed_part: int):
-    fixed_part_pos = gluons_list.index(fixed_part)
-    alpha_set = gluons_list[1:fixed_part_pos]
-    beta_set = gluons_list[fixed_part_pos+1:]
-
-    n_beta = len(beta_set)
-
-    kk_list = []
-
-    for shuffle in permutation_utils.shuffle_product(alpha_set, beta_set[::-1]):
-
-        kk_list.append([1,] + shuffle + [fixed_part,])
-
-    return (-1)**n_beta, kk_list
-
-def gen_kk_rel(n_gluons: int):
-    kk_dict = {}
-    for perm in permutation_utils.non_cyclic_perms(range(1,n_gluons + 1)):
-        if perm[n_gluons-1] == n_gluons:
-            kk_dict[perm] = (1, [perm,])
-
-        else:
-            kk_dict[perm] = kk_rel(perm, n_gluons)
-
-    return kk_dict
-
-def gen_dressed_kk_rel(opt: amplitude.settings):
-    
-    kk_dict = gen_kk_rel(opt.n_gluons)
-    kk_dressed_dict = {}
-
-    for key, value in kk_dict.items():
-        expr_dressed_value = 0
-        for el in value[1]:
-            sym_list = [symbols(f'{x}') for x in el]
-            expr_dressed_value += color_stripped_amps.abstract_cs_amp(opt.cs_amp_letter, 0, sym_list)
-
-        expr_dressed_value *= value[0]
-
-        sym_list = [symbols(f'{x}') for x in key]
-        dressed_key = color_stripped_amps.abstract_cs_amp(opt.cs_amp_letter, 0, sym_list)
-
-        kk_dressed_dict[dressed_key] = expr_dressed_value
-
-    return kk_dressed_dict
-
-N_GLUONS = 6
+N_GLUONS = 4
+base_num_idx_list = symbols(f'1:{N_GLUONS+1}')
 
 opt_tree_1 = amplitude.settings()
 opt_tree_1.n_gluons = N_GLUONS
@@ -67,22 +24,28 @@ opt_tree_2.cs_amp_letter = 'B'
 
 expr_tree_1 = amplitude.generate_leading_amplitude(opt_tree_1, 0)
 expr_tree_1 = expr_tree_1.replace(SUNDelta, lambda a,b: SUNDelta(b, a))
-expr_tree_1 = expr_tree_1.subs(gen_dressed_kk_rel(opt_tree_1))
+expr_tree_1 = expr_tree_1.subs(KK_utils.gen_dressed_kk_rel(opt_tree_1))
+
+pdr_1 = photon_decoupling.gen_tree_lvl_pdr(opt_tree_1.cs_amp_letter, base_num_idx_list)
+kk_pdr_1 = KK_utils.gen_kk_pdr(KK_utils.gen_dressed_kk_rel(opt_tree_1), pdr_1)
 
 expr_tree_2 = amplitude.generate_leading_amplitude(opt_tree_2, 0)
-#expr_tree_2 = expr_tree_2.subs(gen_dressed_kk_rel(opt_tree_2))
+#expr_tree_2 = expr_tree_2.subs(KK_utils.gen_dressed_kk_rel(opt_tree_2))
 expr_tree_2 = amplitude.apply_reflection(opt_tree_2, expr_tree_2, 0)
 
 product = expr_tree_1 * expr_tree_2
 
 total = sun_utils.compute_closed_cycles(opt_tree_1.sun_n, opt_tree_1.sun_delta, product)
-total = amplitude.collect_by_Nc_then_amp(opt_tree_2, total)
+#total = amplitude.collect_by_Nc_then_amp(opt_tree_2, total)
+
+transl_dict = simplification_utils.create_translation_dict(opt_tree_1, 0)
+simpl_pdr = simplification_utils.translate_pdr(transl_dict, kk_pdr_1)
 
 init_printing(use_latex='mathjax')
 
-display(gen_dressed_kk_rel(opt_tree_1))
+display(KK_utils.gen_dressed_kk_rel(opt_tree_1))
+#display(total)
 
-
-#display(expr_tree_1.subs(SUNDelta, VisualDelta))
-#display(expr_tree_2.subs(SUNDelta, VisualDelta))
+display(expr_tree_1.subs(SUNDelta, VisualDelta))
+display(expr_tree_2.subs(SUNDelta, VisualDelta))
 display(total)
